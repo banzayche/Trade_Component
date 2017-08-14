@@ -1,0 +1,25 @@
+{
+  "name": "trade_bot",
+  "version": "1.0.0",
+  "description": "to investigate this area",
+  "main": "start.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/banzayche/trade_bot.git"
+  },
+  "author": "banzayche",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/banzayche/trade_bot/issues"
+  },
+  "homepage": "https://github.com/banzayche/trade_bot#readme",
+  "dependencies": {
+    "crypto-js": "^3.1.9-1",
+    "express": "^4.15.3",
+    "querystring": "^0.2.0",
+    "request": "^2.81.0"
+  }
+}
