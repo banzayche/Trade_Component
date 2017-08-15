@@ -35,9 +35,9 @@ function checkActiveOrders(orders) {
         // setInterval(run, 180000);
       }            
     }
-    else {
-      sellBuyFunction();
-    } 
+  }
+  else {
+    sellBuyFunction();
   }
 }
 
@@ -55,5 +55,5 @@ function run() {
   TRADE.api_query("user_open_orders", {}, checkActiveOrders);
 }
 
-// run();
-exports.run = run;
+run();
+// exports.run = run;

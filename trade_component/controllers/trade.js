@@ -1,12 +1,12 @@
-var CryptoJS = require("crypto-js"),
-    querystring = require('querystring'),
-    request = require('request'),
-    config = {
-      url: 'https://api.exmo.com/v1/'
-    };
+var CryptoJS = require('crypto-js'),
+  querystring = require('querystring'),
+  request = require('request'),
+  config = {
+    url: 'https://api.exmo.com/v1/'
+  };
 
 
-function sign(message){
+function sign(message) {
   return CryptoJS.HmacSHA512(message, config.secret).toString(CryptoJS.enc.hex);
 }
 
@@ -16,30 +16,30 @@ exports.init_exmo = function (cfg) {
   config.nonce = Math.floor(new Date().getTime());
 };
 
-exports.api_query = function(method_name, data, callback){
-data.nonce = config.nonce++;
-var post_data = querystring.stringify(data);
+exports.api_query = function(method_name, data, callback) {
+  data.nonce = config.nonce++;
+  var post_data = querystring.stringify(data);
 
-var options = {
-  url: config.url + method_name,
-  method: 'POST',
-  headers: {
-    'Key': config.key,
-    'Sign': sign(post_data)
-  },
-  form:data
-};
+  var options = {
+    url: config.url + method_name,
+    method: 'POST',
+    headers: {
+      'Key': config.key,
+      'Sign': sign(post_data)
+    },
+    form: data
+  };
 
- request(options, function (error, response, body) {
-      if (!error && response.statusCode == 200) {
-          callback(body);
-      }else{
-        callback(error);
-      }
+  request(options, function(error, response, body) {
+    if (!error && response.statusCode == 200) {
+      callback(body);
+    } else {
+      callback(error);
+    }
   });
 };
 
 
-exports.test = function(){
+exports.test = function() {
   return config.key;
 };
