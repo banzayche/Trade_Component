@@ -11,9 +11,9 @@ function sign(message){
 }
 
 exports.init_exmo = function (cfg) {
-config.key = cfg.key;
-config.secret = cfg.secret;
-config.nonce = Math.floor(new Date().getTime());
+  config.key = cfg.key;
+  config.secret = cfg.secret;
+  config.nonce = Math.floor(new Date().getTime());
 };
 
 exports.api_query = function(method_name, data, callback){

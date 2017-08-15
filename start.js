@@ -3,8 +3,6 @@ const app = express();
 const path = require('path');
 const router = express.Router();
 
-const CryptoJS = require('crypto-js');
-
 // NOTICE middlevare function 
 var myLogger = function (req, res, next) {
   console.log('LOGGED');
