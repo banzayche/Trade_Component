@@ -13,6 +13,9 @@ const ORDER_LIFE_TIME = TRADE_CONFIG.trade_config.order_life_time;
 const SPENDING_LIMIT = TRADE_CONFIG.trade_config.can_spend;
 const AVG_PRICE_PERIOD = TRADE_CONFIG.trade_config.avg_price_period;
 
+let globalTimeout;
+const timeoutTime = 60000;
+
 // Help functions
 /**
  * To run the logic
@@ -44,9 +47,6 @@ function checkActiveOrders(orders) {
   orders = JSON.parse(orders);
   let isNoOrders = _.isEmpty(orders);
 
-  // let sellOrder = _.find(orders[CURRENCY_PAIR], ['type', 'sell']);
-  // let buyOrder = _.find(orders[CURRENCY_PAIR], ['type', 'buy']);
-
   let sellOrders = _.filter(orders[CURRENCY_PAIR], { type: 'sell' });
   let buyOrders = _.filter(orders[CURRENCY_PAIR], { type: 'buy' });
 
@@ -66,7 +66,10 @@ function checkActiveOrders(orders) {
 function processExistingOrders(sellOrders, buyOrders) {
   if (sellOrders.length > 0) {
     util.log('Opened deal already exists. Will check again after 3 minutes.');
-    // setInterval(run, 180000);
+    
+    globalTimeout || clearTimeout(globalTimeout);
+    globalTimeout = setTimeout(run, timeoutTime);
+
   } else if (buyOrders.length > 0) {
     processExistingBuyOrders(buyOrders);
   }
@@ -89,9 +92,10 @@ function processExistingBuyOrders(buyOrders) {
         util.log(`Buy order to old, close it. ID - ${order.order_id}`);
         closeOrder(order);
       } else {
+        util.log(`Order id: ${order.order_id} not so old or half-executed`);
         // Clear previous interval and setup new to check orders later
-        interval || clearInterval(timerId);
-        // interval = setInterval(run, 180000);
+        globalTimeout || clearTimeout(globalTimeout);
+        globalTimeout = setTimeout(run, timeoutTime);
       }
     });
   });
@@ -104,6 +108,10 @@ function closeOrder(order) {
   TRADE.api_query('order_cancel', { "order_id": order.order_id }, (res) => {
     res = JSON.parse(res);
     util.log(`Close the order. Result is - ${res.result}`);
+    
+    globalTimeout || clearTimeout(globalTimeout);
+    globalTimeout = setTimeout(run, timeoutTime);
+
   });
 }
 /**
@@ -123,7 +131,10 @@ function sellBuyCallback(res) {
     createBuyOrder();
   } else {
     util.log('No money');
-    // setInterval(run, 180000);
+    
+    globalTimeout || clearTimeout(globalTimeout);
+    globalTimeout = setTimeout(run, timeoutTime);
+
   }
 }
 /**
@@ -134,18 +145,23 @@ function sellBuyCallback(res) {
 function createSellOrder(sellCurrencyBalance) {
   util.log('Create Sell order');
   let wannaGet = SPENDING_LIMIT + SPENDING_LIMIT * (STOCK_FEE + PROFIT);
+  let price = wannaGet / parseFloat(sellCurrencyBalance);
 
-  util.log('Sell info: ', JSON.stringify({ CURRENCY_PAIR, wannaGet, sellCurrencyBalance }, null, 2));
+  util.log('Sell info: ', JSON.stringify({ CURRENCY_PAIR, wannaGet, price, sellCurrencyBalance }, null, 2));
 
   TRADE.api_query('order_create', {
     'pair': CURRENCY_PAIR,
     'quantity': sellCurrencyBalance,
-    'price': wannaGet,
+    'price': price,
     'type': 'sell'
   }, (res) => {
     res = JSON.parse(res);
     if (res.result === true && _.isEmpty(res.error)) util.log(`Sell order created. id: ${res.order_id}`);
     else util.log('Something went wrong, got error when try to sell');
+    
+    globalTimeout || clearTimeout(globalTimeout);
+    globalTimeout = setTimeout(run, timeoutTime);
+
   });
 }
 /**
@@ -186,12 +202,16 @@ function createBuyOrder() {
           'price': myNeedPrice,
           'type': 'buy'
         }, (res) => {
-          let res = JSON.parse(res);
+          res = JSON.parse(res);
           if (res.result === true && _.isEmpty(res.error)) util.log(`Buy order created. id: ${res.order_id}`);
           else util.log('Something went wrong, got error when try to buy');
+          globalTimeout || clearTimeout(globalTimeout);
+          globalTimeout = setTimeout(run, timeoutTime);
         });
       } else {
         util.log('WARN. Have no money to create Buy Order');
+        globalTimeout || clearTimeout(globalTimeout);
+        globalTimeout = setTimeout(run, timeoutTime);
       }
     });
   });
