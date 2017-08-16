@@ -18,12 +18,13 @@ to use it create config.json in trade_component fodler.
   }
 }
 
-##before start execute
-npm install
+## before start execute
+`npm install`
 
-##you able to start by executing
-npm start
+## you able to start by executing
+`npm start`
 
-###or by double click on on of the files
-run_onMac.command (for MAC)
-run_onPC.bat      (for PC)
+### or by double click on on of the files
+`run_onMac.command` (for MAC)
+
+`run_onPC.bat`     (for PC)
