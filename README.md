@@ -6,7 +6,7 @@ to use it create config.json in trade_component foder.
 {
   "key":"",
   "secret":"",
-  "trade_comfig": {
+  "trade_config": {
     "currency_1": "BTC",
     "currency_2": "USD",
     "order_life_time": 3,
