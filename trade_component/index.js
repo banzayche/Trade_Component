@@ -37,7 +37,9 @@ function checkActiveOrders(orders) {
     }
   }
   else {
-    sellBuyFunction();
+    util.log('No active orders. Need to sell or buy.');
+    // to get conts of currency_1 and currency_2
+    TRADE.api_query('user_info', {}, sellBuyFunction);
   }
 }
 
@@ -46,8 +48,67 @@ function closeOrderCallback(res) {
   util.log(`Close the order. Result is - ${res.result}`);
 }
 
-function sellBuyFunction() {
-  util.log('No active orders. Need to sell or buy.');
+function sellBuyFunction(res) {
+  res = JSON.parse(res);
+
+  // Check if some currency_1 exists to sell
+  if (parseFloat(res.balances[TRADE_CONFIG.trade_config.currency_1]) > 0) {
+    // Create sell order
+    createSellOrder();
+  }
+  else if (parseFloat(res.balances[TRADE_CONFIG.trade_config.currency_2]) >= TRADE_CONFIG.trade_config.can_spend) {
+    // Create buy order
+    createBuyOrder();
+  }
+  else {
+    util.log('No money');
+    // setInterval(run, 180000);
+  }
+}
+
+function createBuyOrder(params) {
+  util.log('Calculate price and amount for Buy');
+  let pair = `${TRADE_CONFIG.trade_config.currency_1}_${TRADE_CONFIG.trade_config.currency_2}`;
+
+  TRADE.api_query('trades', {
+    "pair": pair
+  }, (res) => {
+    // Orders statistics
+    res = JSON.parse(res);
+
+    let time_check = (new Date().getTime() / 1000) + TRADE_CONFIG.trade_config.stock_time_offset*60*60;
+
+    let getPricesByPeriod = _.reduce(res[pair], function(result, value) {
+      let condition = time_check - parseFloat(value.date) < TRADE_CONFIG.trade_config.avg_price_period*60;
+      if (condition) result.push(parseFloat(value.price));
+      return result;
+    }, []);
+
+    let avgPrice = _.sum(getPricesByPeriod)/getPricesByPeriod.length;   
+
+    let myNeedPrice = avgPrice - avgPrice * (TRADE_CONFIG.trade_config.stock_fee + TRADE_CONFIG.trade_config.profit);
+    let myAmount = TRADE_CONFIG.trade_config.can_spend/myNeedPrice;
+    
+    util.log('avgPrice: ', avgPrice);
+    util.log('myNeedPrice: ', myNeedPrice);
+    util.log('myAmount: ', myAmount);
+
+
+    TRADE.api_query('pair_settings', {}, (res) => {
+      let quantity = JSON.parse(res)[pair].min_quantity;
+
+      if (myAmount >= quantity) {
+        util.log('Creating BUY order')
+      }
+      else {
+        util.log('WARN. Have no money to create Buy Order');
+      }
+    });
+  });
+}
+
+function createSellOrder(params) {
+  util.log('Create Sell order');
 }
 
 function run() {
