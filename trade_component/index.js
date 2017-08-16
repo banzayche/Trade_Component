@@ -44,12 +44,15 @@ function checkActiveOrders(orders) {
   orders = JSON.parse(orders);
   let isNoOrders = _.isEmpty(orders);
 
-  let sellOrder = _.find(orders[CURRENCY_PAIR], ['type', 'sell']);
-  let buyOrder = _.find(orders[CURRENCY_PAIR], ['type', 'buy']);
+  // let sellOrder = _.find(orders[CURRENCY_PAIR], ['type', 'sell']);
+  // let buyOrder = _.find(orders[CURRENCY_PAIR], ['type', 'buy']);
+
+  let sellOrders = _.filter(orders[CURRENCY_PAIR], { type: 'sell' });
+  let buyOrders = _.filter(orders[CURRENCY_PAIR], { type: 'buy' });
 
   // To check active orders
   if (!isNoOrders && _.has(orders, CURRENCY_PAIR)) {
-    processExistingOrders(sellOrder, buyOrder);
+    processExistingOrders(sellOrders, buyOrders);
   } else {
     util.log('No active orders. Need to sell or buy.');
     // to get conts of currency_1 and currency_2
@@ -60,23 +63,41 @@ function checkActiveOrders(orders) {
  * Step #2
  * To process existing orders
  */
-function processExistingOrders(sellOrder, buyOrder) {
-  if (sellOrder) {
+function processExistingOrders(sellOrders, buyOrders) {
+  if (sellOrders.length > 0) {
     util.log('Opened deal already exists. Will check again after 3 minutes.');
     // setInterval(run, 180000);
-  } else if (buyOrder) {
-    // To check old buy orders
-    if (getPassedTime(buyOrder.created) > ORDER_LIFE_TIME * 60) {
-      util.log('Buy order to old, close it.');
-      closeOrder(buyOrder);
-    } else {
-      util.log('Opened order isn\'t old anought. Will check again after 3 minutes.');
-      // setInterval(run, 180000);
-    }
+  } else if (buyOrders.length > 0) {
+    processExistingBuyOrders(buyOrders);
   }
 }
 /**
  * Step #3
+ * To process buy orders
+ * @param {array} buyOrders - list of user's buy orders 
+ */
+// TODO: Check it!!!
+function processExistingBuyOrders(buyOrders) {
+  let interval = null;
+  _.forEach(buyOrders, (order) => {
+    TRADE.api_query('order_trades', { 'order_id': order.order_id }, (res) => {
+      res = JSON.parse(res);
+      let halfExecutedCondition = _.has(res, 'trades') && _.get(res, 'trades').length > 0;
+
+      // To close none half-executed and old orders
+      if (!halfExecutedCondition && (getPassedTime(order.created) > ORDER_LIFE_TIME * 60)) {
+        util.log(`Buy order to old, close it. ID - ${order.order_id}`);
+        closeOrder(order);
+      } else {
+        // Clear previous interval and setup new to check orders later
+        interval || clearInterval(timerId);
+        // interval = setInterval(run, 180000);
+      }
+    });
+  });
+}
+/**
+ * Step #4
  * To close old order
  */
 function closeOrder(order) {
@@ -86,7 +107,7 @@ function closeOrder(order) {
   });
 }
 /**
- * Step #4
+ * Step #5
  * Callback function. To process creating buy or sell order
  * @param {*} res - user_info response 
  */
@@ -106,7 +127,7 @@ function sellBuyCallback(res) {
   }
 }
 /**
- * Step #5
+ * Step #6
  * To create Sell order
  * @param {*} sellCurrencyBalance 
  */
@@ -128,7 +149,7 @@ function createSellOrder(sellCurrencyBalance) {
   });
 }
 /**
- * Step #6
+ * Step #7
  * To create Buy order
  */
 function createBuyOrder() {
