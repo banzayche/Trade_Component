@@ -65,7 +65,7 @@ function checkActiveOrders(orders) {
  */
 function processExistingOrders(sellOrders, buyOrders) {
   if (sellOrders.length > 0) {
-    util.log('Opened deal already exists. Will check again after 3 minutes.');
+    util.log(`Sell order already exists. Will check again after ${(timeoutTime/1000)/60} minutes.`);
     
     globalTimeout || clearTimeout(globalTimeout);
     globalTimeout = setTimeout(run, timeoutTime);
@@ -92,7 +92,7 @@ function processExistingBuyOrders(buyOrders) {
         util.log(`Buy order to old, close it. ID - ${order.order_id}`);
         closeOrder(order);
       } else {
-        util.log(`Order id: ${order.order_id} not so old or half-executed`);
+        util.log(`Order id: ${order.order_id} not so old or half-executed. Will check again after ${(timeoutTime/1000)/60} minutes.`);
         // Clear previous interval and setup new to check orders later
         globalTimeout || clearTimeout(globalTimeout);
         globalTimeout = setTimeout(run, timeoutTime);
