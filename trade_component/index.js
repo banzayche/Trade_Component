@@ -54,7 +54,7 @@ function sellBuyFunction(res) {
   // Check if some currency_1 exists to sell
   if (parseFloat(res.balances[TRADE_CONFIG.trade_config.currency_1]) > 0) {
     // Create sell order
-    createSellOrder();
+    createSellOrder(res.balances[TRADE_CONFIG.trade_config.currency_1]);
   }
   else if (parseFloat(res.balances[TRADE_CONFIG.trade_config.currency_2]) >= TRADE_CONFIG.trade_config.can_spend) {
     // Create buy order
@@ -89,16 +89,24 @@ function createBuyOrder(params) {
     let myNeedPrice = avgPrice - avgPrice * (TRADE_CONFIG.trade_config.stock_fee + TRADE_CONFIG.trade_config.profit);
     let myAmount = TRADE_CONFIG.trade_config.can_spend/myNeedPrice;
     
-    util.log('avgPrice: ', avgPrice);
-    util.log('myNeedPrice: ', myNeedPrice);
-    util.log('myAmount: ', myAmount);
-
+    util.log('Buy info: ', JSON.stringify({avgPrice, myNeedPrice, myAmount}, null, 2));
 
     TRADE.api_query('pair_settings', {}, (res) => {
       let quantity = JSON.parse(res)[pair].min_quantity;
 
       if (myAmount >= quantity) {
-        util.log('Creating BUY order')
+        util.log('Creating BUY order');
+
+        TRADE.api_query('order_create', {
+          'pair': pair,
+          'quantity': myAmount,
+          'price': myNeedPrice,
+          'type': 'buy'
+        }, (res)=>{
+          let res = JSON.parse(res);
+          if (res.result === true && _.isEmpty(res.error)) util.log(`Buy order created. id: ${res.order_id}`);
+          else util.log('Something went wrong, got error when try to buy');
+        });
       }
       else {
         util.log('WARN. Have no money to create Buy Order');
@@ -107,8 +115,23 @@ function createBuyOrder(params) {
   });
 }
 
-function createSellOrder(params) {
+function createSellOrder(balanceCurrency_1) {
   util.log('Create Sell order');
+  let pair = `${TRADE_CONFIG.trade_config.currency_1}_${TRADE_CONFIG.trade_config.currency_2}`;
+  let wannaGet = TRADE_CONFIG.trade_config.can_spend + TRADE_CONFIG.trade_config.can_spend * (TRADE_CONFIG.trade_config.stock_fee + TRADE_CONFIG.trade_config.profit);
+  
+  util.log('Sell info: ', JSON.stringify({pair, wannaGet, balanceCurrency_1}, null, 2));
+
+  TRADE.api_query('order_create', {
+    'pair': pair,
+    'quantity': balanceCurrency_1,
+    'price': wannaGet,
+    'type': 'sell'
+  }, (res)=>{
+    let res = JSON.parse(res);
+    if (res.result === true && _.isEmpty(res.error)) util.log(`Sell order created. id: ${res.order_id}`);
+    else util.log('Something went wrong, got error when try to sell');
+  });
 }
 
 function run() {
