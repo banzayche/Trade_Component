@@ -1,7 +1,7 @@
 # trade_bot
 to investigate this area
 
-to use it create config.json in trade_component foder.
+to use it create config.json in trade_component fodler.
 
 {
   "key":"",
@@ -17,3 +17,13 @@ to use it create config.json in trade_component foder.
     "profit": 0.001
   }
 }
+
+##before start execute
+npm install
+
+##you able to start by executing
+npm start
+
+###or by double click on on of the files
+run_onMac.command (for MAC)
+run_onPC.bat      (for PC)

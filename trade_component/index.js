@@ -14,7 +14,7 @@ const SPENDING_LIMIT = TRADE_CONFIG.trade_config.can_spend;
 const AVG_PRICE_PERIOD = TRADE_CONFIG.trade_config.avg_price_period;
 
 let globalTimeout;
-const timeoutTime = 60000;
+const timeoutTime = 180000;
 
 // Help functions
 /**
