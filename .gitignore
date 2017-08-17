@@ -6,3 +6,4 @@ dist
 .sass-cache
 bower_components
 trade_component/config.json
+*.log

@@ -2,6 +2,7 @@ const TRADE = require("./controllers/trade");
 const TRADE_CONFIG = require("./config")
 const _ = require('lodash');
 const util = require('util');
+const logger = require('./services/custom_logger.js').logger;
 
 
 const CURRENCY1 = TRADE_CONFIG.trade_config.currency_1;
@@ -66,7 +67,7 @@ function checkActiveOrders(orders) {
 function processExistingOrders(sellOrders, buyOrders) {
   if (sellOrders.length > 0) {
     util.log(`Sell order already exists. Will check again after ${(timeoutTime/1000)/60} minutes.`);
-    
+
     globalTimeout || clearTimeout(globalTimeout);
     globalTimeout = setTimeout(run, timeoutTime);
 
@@ -108,7 +109,7 @@ function closeOrder(order) {
   TRADE.api_query('order_cancel', { "order_id": order.order_id }, (res) => {
     res = JSON.parse(res);
     util.log(`Close the order. Result is - ${res.result}`);
-    
+
     globalTimeout || clearTimeout(globalTimeout);
     globalTimeout = setTimeout(run, timeoutTime);
 
@@ -131,7 +132,7 @@ function sellBuyCallback(res) {
     createBuyOrder();
   } else {
     util.log('No money');
-    
+
     globalTimeout || clearTimeout(globalTimeout);
     globalTimeout = setTimeout(run, timeoutTime);
 
@@ -158,7 +159,7 @@ function createSellOrder(sellCurrencyBalance) {
     res = JSON.parse(res);
     if (res.result === true && _.isEmpty(res.error)) util.log(`Sell order created. id: ${res.order_id}`);
     else util.log('Something went wrong, got error when try to sell');
-    
+
     globalTimeout || clearTimeout(globalTimeout);
     globalTimeout = setTimeout(run, timeoutTime);
 
