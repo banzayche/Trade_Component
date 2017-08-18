@@ -1,9 +1,15 @@
 const TRADE = require("./controllers/trade");
 const TRADE_CONFIG = require("./config")
 const _ = require('lodash');
-const util = require('util');
-const logger = require('./services/custom_logger.js').logger;
-
+const winston = require('winston');
+var logger = new(winston.Logger)({
+  transports: [
+    new(winston.transports.Console)({
+      colorize: 'all'
+    }),
+    new(winston.transports.File)({ filename: 'trade_log.log' })
+  ]
+});
 
 const CURRENCY1 = TRADE_CONFIG.trade_config.currency_1;
 const CURRENCY2 = TRADE_CONFIG.trade_config.currency_2;
@@ -38,7 +44,13 @@ function getCurrentSeconds() {
 function getPassedTime(pastTime) {
   return (getCurrentSeconds() - pastTime);
 }
-
+/**
+ * Wait
+ */
+function wait() {
+  globalTimeout || clearTimeout(globalTimeout);
+  globalTimeout = setTimeout(run, timeoutTime);
+}
 
 /**
  *  Step #1
@@ -55,7 +67,7 @@ function checkActiveOrders(orders) {
   if (!isNoOrders && _.has(orders, CURRENCY_PAIR)) {
     processExistingOrders(sellOrders, buyOrders);
   } else {
-    util.log('No active orders. Need to sell or buy.');
+    logger.info('No active orders. Need to sell or buy.');
     // to get conts of currency_1 and currency_2
     TRADE.api_query('user_info', {}, sellBuyCallback);
   }
@@ -66,11 +78,9 @@ function checkActiveOrders(orders) {
  */
 function processExistingOrders(sellOrders, buyOrders) {
   if (sellOrders.length > 0) {
-    util.log(`Sell order already exists. Will check again after ${(timeoutTime/1000)/60} minutes.`);
-
-    globalTimeout || clearTimeout(globalTimeout);
-    globalTimeout = setTimeout(run, timeoutTime);
-
+    // TODO: need to update price of created sell orders if it's possible
+    logger.info(`Sell order already exists. Will check again after ${(timeoutTime/1000)/60} minutes.`);
+    wait();
   } else if (buyOrders.length > 0) {
     processExistingBuyOrders(buyOrders);
   }
@@ -90,13 +100,11 @@ function processExistingBuyOrders(buyOrders) {
 
       // To close none half-executed and old orders
       if (!halfExecutedCondition && (getPassedTime(order.created) > ORDER_LIFE_TIME * 60)) {
-        util.log(`Buy order to old, close it. ID - ${order.order_id}`);
+        logger.warn(`Buy order to old, close it. ID - ${order.order_id}`);
         closeOrder(order);
       } else {
-        util.log(`Order id: ${order.order_id} not so old or half-executed. Will check again after ${(timeoutTime/1000)/60} minutes.`);
-        // Clear previous interval and setup new to check orders later
-        globalTimeout || clearTimeout(globalTimeout);
-        globalTimeout = setTimeout(run, timeoutTime);
+        logger.info(`Order id: ${order.order_id} not so old or half-executed. Will check again after ${(timeoutTime/1000)/60} minutes.`);
+        wait();
       }
     });
   });
@@ -108,11 +116,8 @@ function processExistingBuyOrders(buyOrders) {
 function closeOrder(order) {
   TRADE.api_query('order_cancel', { "order_id": order.order_id }, (res) => {
     res = JSON.parse(res);
-    util.log(`Close the order. Result is - ${res.result}`);
-
-    globalTimeout || clearTimeout(globalTimeout);
-    globalTimeout = setTimeout(run, timeoutTime);
-
+    logger.warn(`Close the order. Result is - ${res.result}`);
+    wait();
   });
 }
 /**
@@ -131,11 +136,8 @@ function sellBuyCallback(res) {
     // Create buy order
     createBuyOrder();
   } else {
-    util.log('No money');
-
-    globalTimeout || clearTimeout(globalTimeout);
-    globalTimeout = setTimeout(run, timeoutTime);
-
+    logger.warn('No money');
+    wait();
   }
 }
 /**
@@ -144,25 +146,33 @@ function sellBuyCallback(res) {
  * @param {*} sellCurrencyBalance 
  */
 function createSellOrder(sellCurrencyBalance) {
-  util.log('Create Sell order');
+  logger.info('Create Sell order');
   let wannaGet = SPENDING_LIMIT + SPENDING_LIMIT * (STOCK_FEE + PROFIT);
   let price = wannaGet / parseFloat(sellCurrencyBalance);
 
-  util.log('Sell info: ', JSON.stringify({ CURRENCY_PAIR, wannaGet, price, sellCurrencyBalance }, null, 2));
+  logger.warn('Sell info: ', JSON.stringify({ CURRENCY_PAIR, wannaGet, price, sellCurrencyBalance }, null, 2));
 
-  TRADE.api_query('order_create', {
-    'pair': CURRENCY_PAIR,
-    'quantity': sellCurrencyBalance,
-    'price': price,
-    'type': 'sell'
+  TRADE.api_query('order_book', {
+    "pair": CURRENCY_PAIR
   }, (res) => {
+    // Orders statistics
     res = JSON.parse(res);
-    if (res.result === true && _.isEmpty(res.error)) util.log(`Sell order created. id: ${res.order_id}`);
-    else util.log('Something went wrong, got error when try to sell');
+    let currentTopPrice = res[CURRENCY_PAIR].ask_top;
+    logger.warn('currentTopPrice', currentTopPrice);
 
-    globalTimeout || clearTimeout(globalTimeout);
-    globalTimeout = setTimeout(run, timeoutTime);
+    price = currentTopPrice > price ? currentTopPrice : price;
 
+    TRADE.api_query('order_create', {
+      'pair': CURRENCY_PAIR,
+      'quantity': sellCurrencyBalance,
+      'price': price,
+      'type': 'sell'
+    }, (res) => {
+      res = JSON.parse(res);
+      if (res.result === true && _.isEmpty(res.error)) logger.info(`Sell order created. id: ${res.order_id}`);
+      else logger.error('Something went wrong, got error when try to sell');
+      wait();
+    });
   });
 }
 /**
@@ -170,7 +180,7 @@ function createSellOrder(sellCurrencyBalance) {
  * To create Buy order
  */
 function createBuyOrder() {
-  util.log('Calculate price and amount for Buy');
+  logger.info('Calculate price and amount for Buy');
 
   TRADE.api_query('trades', {
     "pair": CURRENCY_PAIR
@@ -189,13 +199,13 @@ function createBuyOrder() {
     let myNeedPrice = avgPrice - avgPrice * (STOCK_FEE + PROFIT);
     let myAmount = SPENDING_LIMIT / myNeedPrice;
 
-    util.log('Buy info: ', JSON.stringify({ avgPrice, myNeedPrice, myAmount }, null, 2));
+    logger.warn('Buy info: ', JSON.stringify({ avgPrice, myNeedPrice, myAmount }, null, 2));
 
     TRADE.api_query('pair_settings', {}, (res) => {
       let quantity = JSON.parse(res)[CURRENCY_PAIR].min_quantity;
 
       if (myAmount >= quantity) {
-        util.log('Creating BUY order');
+        logger.info('Creating BUY order');
 
         TRADE.api_query('order_create', {
           'pair': CURRENCY_PAIR,
@@ -204,15 +214,13 @@ function createBuyOrder() {
           'type': 'buy'
         }, (res) => {
           res = JSON.parse(res);
-          if (res.result === true && _.isEmpty(res.error)) util.log(`Buy order created. id: ${res.order_id}`);
-          else util.log('Something went wrong, got error when try to buy');
-          globalTimeout || clearTimeout(globalTimeout);
-          globalTimeout = setTimeout(run, timeoutTime);
+          if (res.result === true && _.isEmpty(res.error)) logger.info(`Buy order created. id: ${res.order_id}`);
+          else logger.error('Something went wrong, got error when try to buy');
+          wait();
         });
       } else {
-        util.log('WARN. Have no money to create Buy Order');
-        globalTimeout || clearTimeout(globalTimeout);
-        globalTimeout = setTimeout(run, timeoutTime);
+        logger.warn('WARN. Have no money to create Buy Order');
+        wait();
       }
     });
   });
