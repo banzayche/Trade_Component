@@ -51,6 +51,20 @@ function wait() {
   globalTimeout || clearTimeout(globalTimeout);
   globalTimeout = setTimeout(run, timeoutTime);
 }
+/**
+ * Check ask top price (for correcting sell order price)
+ */
+function checkAskTop(callback) {
+  TRADE.api_query('order_book', {
+    "pair": CURRENCY_PAIR
+  }, (res) => {
+    // Orders statistics
+    res = JSON.parse(res);
+    let currentTopPrice = res[CURRENCY_PAIR].ask_top;
+    logger.warn('currentTopPrice', currentTopPrice);
+    callback(currentTopPrice);
+  });
+}
 
 /**
  *  Step #1
@@ -77,22 +91,15 @@ function checkActiveOrders(orders) {
  * To process existing orders
  */
 function processExistingOrders(sellOrders, buyOrders) {
-  if (sellOrders.length > 0) {
-    // TODO: need to update price of created sell orders if it's possible
-    logger.info(`Sell order already exists. Will check again after ${(timeoutTime/1000)/60} minutes.`);
-    wait();
-  } else if (buyOrders.length > 0) {
-    processExistingBuyOrders(buyOrders);
-  }
+  if (sellOrders.length > 0) processExistingSellOrders(sellOrders);
+  else if (buyOrders.length > 0) processExistingBuyOrders(buyOrders);
 }
 /**
- * Step #3
+ * Step #3.2
  * To process buy orders
  * @param {array} buyOrders - list of user's buy orders 
  */
-// TODO: Check it!!!
 function processExistingBuyOrders(buyOrders) {
-  let interval = null;
   _.forEach(buyOrders, (order) => {
     TRADE.api_query('order_trades', { 'order_id': order.order_id }, (res) => {
       res = JSON.parse(res);
@@ -110,13 +117,34 @@ function processExistingBuyOrders(buyOrders) {
   });
 }
 /**
+ * Step #3.1
+ * To process sell orders
+ * @param {array} sellOrders - list of user's buy orders 
+ */
+function processExistingSellOrders(sellOrders) {
+  checkAskTop((currentTopPrice) => {
+    /**
+     * If currentTopPrice higher than price of existing sell order, close current sell order.
+     * After system timeout new Sell order will be created with up-to-date price
+     */
+    _.forEach(sellOrders, (order) => {
+      if (currentTopPrice > order.price) {
+        closeOrder(order);
+      } else {
+        logger.info(`Order ID - ${order.order_id}. Will check again after ${(timeoutTime/1000)/60} minutes.`);
+        wait();
+      }
+    });
+  });
+}
+/**
  * Step #4
  * To close old order
  */
 function closeOrder(order) {
   TRADE.api_query('order_cancel', { "order_id": order.order_id }, (res) => {
     res = JSON.parse(res);
-    logger.warn(`Close the order. Result is - ${res.result}`);
+    logger.warn(`Close the ${order.type} order. Result is - ${res.result}`);
     wait();
   });
 }
@@ -152,14 +180,7 @@ function createSellOrder(sellCurrencyBalance) {
 
   logger.warn('Sell info: ', JSON.stringify({ CURRENCY_PAIR, wannaGet, price, sellCurrencyBalance }, null, 2));
 
-  TRADE.api_query('order_book', {
-    "pair": CURRENCY_PAIR
-  }, (res) => {
-    // Orders statistics
-    res = JSON.parse(res);
-    let currentTopPrice = res[CURRENCY_PAIR].ask_top;
-    logger.warn('currentTopPrice', currentTopPrice);
-
+  checkAskTop((currentTopPrice) => {
     price = currentTopPrice > price ? currentTopPrice : price;
 
     TRADE.api_query('order_create', {
