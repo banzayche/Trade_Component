@@ -1,5 +1,4 @@
 const TRADE = require("./controllers/trade");
-const TRADE_CONFIG = require("./config")
 const _ = require('lodash');
 const winston = require('winston');
 var logger = new(winston.Logger)({
@@ -11,14 +10,38 @@ var logger = new(winston.Logger)({
   ]
 });
 
-const CURRENCY1 = TRADE_CONFIG.trade_config.currency_1;
-const CURRENCY2 = TRADE_CONFIG.trade_config.currency_2;
-const CURRENCY_PAIR = `${CURRENCY1}_${CURRENCY2}`;
-const STOCK_FEE = TRADE_CONFIG.trade_config.stock_fee;
-const PROFIT = TRADE_CONFIG.trade_config.profit;
-const ORDER_LIFE_TIME = TRADE_CONFIG.trade_config.order_life_time;
-const SPENDING_LIMIT = TRADE_CONFIG.trade_config.can_spend;
-const AVG_PRICE_PERIOD = TRADE_CONFIG.trade_config.avg_price_period;
+let TRADE_CONFIG;
+let CURRENCY1;
+let CURRENCY2;
+let CURRENCY_PAIR;
+let STOCK_FEE;
+let PROFIT;
+let ORDER_LIFE_TIME;
+let SPENDING_LIMIT;
+let AVG_PRICE_PERIOD;
+
+let tradingIsClosed;
+
+function closeTrading() {
+  logger.info('Next iteration of trade will close.');
+  tradingIsClosed = true;
+}
+
+function initConstants(configs) {
+  tradingIsClosed = false;
+
+  TRADE_CONFIG = configs;
+  CURRENCY1 = TRADE_CONFIG.trade_config.currency_1;
+  CURRENCY2 = TRADE_CONFIG.trade_config.currency_2;
+  CURRENCY_PAIR = `${CURRENCY1}_${CURRENCY2}`;
+  STOCK_FEE = TRADE_CONFIG.trade_config.stock_fee;
+  PROFIT = TRADE_CONFIG.trade_config.profit;
+  ORDER_LIFE_TIME = TRADE_CONFIG.trade_config.order_life_time;
+  SPENDING_LIMIT = TRADE_CONFIG.trade_config.can_spend;
+  AVG_PRICE_PERIOD = TRADE_CONFIG.trade_config.avg_price_period;
+
+  run();
+}
 
 let globalTimeout;
 const timeoutTime = 180000;
@@ -71,19 +94,25 @@ function checkAskTop(callback) {
  *  To check Active Sell Orders
  */
 function checkActiveOrders(orders) {
-  orders = JSON.parse(orders);
-  let isNoOrders = _.isEmpty(orders);
-
-  let sellOrders = _.filter(orders[CURRENCY_PAIR], { type: 'sell' });
-  let buyOrders = _.filter(orders[CURRENCY_PAIR], { type: 'buy' });
-
-  // To check active orders
-  if (!isNoOrders && _.has(orders, CURRENCY_PAIR)) {
-    processExistingOrders(sellOrders, buyOrders);
-  } else {
-    logger.info('No active orders. Need to sell or buy.');
-    // to get conts of currency_1 and currency_2
-    TRADE.api_query('user_info', {}, sellBuyCallback);
+  // TODO if cllosed - close
+  if (!tradingIsClosed) {
+    orders = JSON.parse(orders);
+    let isNoOrders = _.isEmpty(orders);
+  
+    let sellOrders = _.filter(orders[CURRENCY_PAIR], { type: 'sell' });
+    let buyOrders = _.filter(orders[CURRENCY_PAIR], { type: 'buy' });
+  
+    // To check active orders
+    if (!isNoOrders && _.has(orders, CURRENCY_PAIR)) {
+      processExistingOrders(sellOrders, buyOrders);
+    } else {
+      logger.info('No active orders. Need to sell or buy.');
+      // to get conts of currency_1 and currency_2
+      TRADE.api_query('user_info', {}, sellBuyCallback);
+    }
+  }
+  else {
+    logger.info('Trading closed by user.');
   }
 }
 /**
@@ -247,5 +276,8 @@ function createBuyOrder() {
   });
 }
 
-run();
-// exports.run = run;
+// const TRADE_CONFIG = require("./config")
+// initConstants(TRADE_CONFIG);
+
+exports.init = initConstants;
+exports.closeTrading = closeTrading;
