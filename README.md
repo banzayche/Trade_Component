@@ -1,11 +1,12 @@
 # trade_bot
 to investigate this area
 
-to use it create config.json in trade_component fodler.
-
-{
-  "key":"",
-  "secret":"",
+Use as npm dependency
+```
+let component = require('trade_bot');
+const configs = {
+  "key":"???",
+  "secret":"???",
   "trade_config": {
     "currency_1": "BTC",
     "currency_2": "USD",
@@ -16,7 +17,13 @@ to use it create config.json in trade_component fodler.
     "can_spend": 10,
     "profit": 0.001
   }
-}
+};
+
+// To start trading
+component.initConstants(configs);
+// To stop trading
+component.closeTrading();
+```
 
 ## before start execute
 `npm install`
