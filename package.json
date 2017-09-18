@@ -2,7 +2,7 @@
   "name": "trade_bot",
   "version": "1.0.0",
   "description": "to investigate this area",
-  "main": "index.js",
+  "main": "./trade_component/index.js",
   "scripts": {
     "start": "cd ./trade_component; node index"
   },
